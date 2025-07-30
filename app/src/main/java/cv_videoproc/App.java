@@ -35,6 +35,8 @@ public class App {
     public static boolean stopped = false;
     public static boolean capturing = false;
     public static boolean idle = true;
+    public static boolean playing = true;
+
 
     enum AppPage {
         Home,
@@ -283,6 +285,20 @@ public class App {
         VideoCapture reader = new VideoCapture(currentProjectDirectory + "/" + currentViewingClipPath);
 
         JButton trimButton = new JButton("Trim Clip");
+        JButton pauseButton = new JButton("Pause");
+        pauseButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (playing) {
+                    playing = false;
+                    pauseButton.setText("Play");
+                } else {
+                    playing = true;
+                    pauseButton.setText("Pause");
+                }
+            }
+        });
         trimButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -320,7 +336,7 @@ public class App {
                 Mat f = new Mat();
                 for (int i = 0; i < TF - TS; i++) {
                     if (reader.read(f)) {
-                        System.out.println("Saved frame "+(TS+i));
+                        System.out.println("Saved frame " + (TS + i));
                         writer.write(f);
                     }
                 }
@@ -345,6 +361,7 @@ public class App {
             }
         });
         buttonPanel.add(backButton);
+        buttonPanel.add(pauseButton);
         buttonPanel.add(trimButton);
         frame.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -369,7 +386,7 @@ public class App {
                     reader.open(currentProjectDirectory + "/" + currentViewingClipPath);
                     playbackSlider.setValue(0);
                 }
-                if (playbackSlider.getValue() != reader.get(Videoio.CAP_PROP_FRAME_COUNT)) {
+                if (playbackSlider.getValue() != reader.get(Videoio.CAP_PROP_FRAME_COUNT)&&(playing||playbackSlider.getValue()!=lastSliderVal)) {
                     long startTime = System.currentTimeMillis();
                     if (playbackSlider.getValue() != lastSliderVal) {
                         reader.set(Videoio.CAP_PROP_POS_FRAMES,
@@ -386,6 +403,7 @@ public class App {
                                 reader.get(Videoio.CAP_PROP_POS_FRAMES) + "/"
                                         + reader.get(Videoio.CAP_PROP_FRAME_COUNT));
                         playbackSlider.setValue(playbackSlider.getValue() + 1);
+                        lastSliderVal++;
                     }
                     long elapsedTime = System.currentTimeMillis() - startTime;
                     if (elapsedTime + necessaryAcceleration > 33) {
@@ -402,6 +420,7 @@ public class App {
 
             }
         }
+        playing = true;
     }
 
     private static void NewProjectMode() {
