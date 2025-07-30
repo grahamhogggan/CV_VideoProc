@@ -24,6 +24,8 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 //import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
@@ -224,6 +226,7 @@ public class App {
                 idle = false;
             }
         });
+
         buttonPanel.add(viewButton);
         buttonPanel.add(importButton);
         buttonPanel.add(captureButton);
@@ -247,7 +250,89 @@ public class App {
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new FlowLayout());
         JButton backButton = new JButton("Done");
+        JPanel trimPanel = new JPanel();
+        trimPanel.setLayout(new BoxLayout(trimPanel, BoxLayout.Y_AXIS));
+        frame.add(trimPanel, BorderLayout.EAST);
+        trimPanel.add(new JLabel("From", SwingConstants.CENTER));
+        JTextArea fromBox = new JTextArea(1, 3);
+        fromBox.addKeyListener(new KeyAdapter() {
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                if (!(Character.isDigit(c) ||
+                        (c == KeyEvent.VK_BACK_SPACE) ||
+                        (c == KeyEvent.VK_DELETE))) {
+                    e.consume();
+                }
+            }
+        });
+        trimPanel.add(fromBox);
+        trimPanel.add(new JLabel("To", SwingConstants.CENTER));
+        JTextArea toBox = new JTextArea(1, 3);
+        toBox.addKeyListener(new KeyAdapter() {
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                if (!(Character.isDigit(c) ||
+                        (c == KeyEvent.VK_BACK_SPACE) ||
+                        (c == KeyEvent.VK_DELETE))) {
+                    e.consume();
+                }
+            }
+        });
+        trimPanel.add(toBox);
 
+        VideoCapture reader = new VideoCapture(currentProjectDirectory + "/" + currentViewingClipPath);
+
+        JButton trimButton = new JButton("Trim Clip");
+        trimButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int FC = (int) reader.get(Videoio.CAP_PROP_FRAME_COUNT);
+                int TS = 0;
+                int TF = FC;
+                try {
+                    TS = Integer.parseInt(fromBox.getText());
+                } catch (Exception e1) {
+                }
+                try {
+                    TF = Integer.parseInt(toBox.getText());
+                } catch (Exception e2) {
+                }
+                if (TS < 0) {
+                    TS = 0;
+                }
+                if (TF > FC) {
+                    TF = FC;
+                }
+                if (TS >= TF) {
+                    TS = 0;
+                    TF = FC;
+                }
+                System.out.println(TS + "-" + TF);
+                reader.set(Videoio.CAP_PROP_POS_FRAMES, TS);
+                int fourcc = VideoWriter.fourcc('H', '2', '6', '4');
+                String filename = currentProjectDirectory + "/" + currentViewingClipPath.replace(".mp4", "")
+                        + "trimmed.mp4";
+                VideoWriter writer = new VideoWriter(filename, fourcc, 30.0, new Size(640, 480));
+                if (!writer.isOpened()) {
+                    System.out.println("Error: Could not open VideoWriter.");
+                    return;
+                }
+                Mat f = new Mat();
+                for (int i = 0; i < TF - TS; i++) {
+                    if (reader.read(f)) {
+                        System.out.println("Saved frame "+(TS+i));
+                        writer.write(f);
+                    }
+                }
+                reader.release();
+                writer.release();
+                frame.dispose();
+                stopped = true;
+                idle = false;
+                currentPage = AppPage.Home;
+                System.out.println("Clip Trimmed");
+            }
+        });
         backButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -260,9 +345,8 @@ public class App {
             }
         });
         buttonPanel.add(backButton);
+        buttonPanel.add(trimButton);
         frame.add(buttonPanel, BorderLayout.SOUTH);
-
-        VideoCapture reader = new VideoCapture(currentProjectDirectory + "/" + currentViewingClipPath);
 
         JLabel videoPlayback = new JLabel();
         frame.add(videoPlayback, BorderLayout.CENTER);
@@ -433,17 +517,12 @@ public class App {
 
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = browser.getSelectedFile();
-            String filePath = selectedFile.getAbsolutePath();
+            File targetDirectory = new File(currentProjectDirectory + "/" + selectedFile.getName());
+            try {
+                Files.copy(selectedFile.toPath(), targetDirectory.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-            File targetDirectory = new File(currentProjectDirectory+"/"+selectedFile.getName());
-            try
-            {
-            Files.copy(selectedFile.toPath(), targetDirectory.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception e) {
 
-            }
-            catch(Exception e)
-            {
-                
             }
             frame.dispose();
             currentPage = AppPage.Home;
