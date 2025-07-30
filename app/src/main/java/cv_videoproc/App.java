@@ -40,14 +40,15 @@ public class App {
         Recording,
         NewProjectCreation,
         OpenProject,
-
+        ViewClip,
     }
 
     public static AppPage currentPage = AppPage.Home;
 
     private static String configFilepath = "config.txt";
     private final static String DefaultProjectPath = "EmptyProject";
-    private static String currentProjectDirectory = "Projects/"+DefaultProjectPath;
+    private static String currentProjectDirectory = "Projects/" + DefaultProjectPath;
+    private static String currentViewingClipPath = "";
 
     public String getGreeting() {
         return "Hello World!";
@@ -72,7 +73,7 @@ public class App {
             }
 
         }
-        File defaultProject = new File("Projects/"+DefaultProjectPath);
+        File defaultProject = new File("Projects/" + DefaultProjectPath);
         if (!defaultProject.exists()) {
             System.out.println("Created empty project");
             CreateProject(DefaultProjectPath);
@@ -92,6 +93,9 @@ public class App {
                     break;
                 case OpenProject:
                     OpenProjectMode();
+                    break;
+                case ViewClip:
+                    ViewMode();
                     break;
             }
         }
@@ -136,26 +140,20 @@ public class App {
         File proj = new File(currentProjectDirectory);
 
         String[] clips = proj.list();
-        String[] trimmedClips = new String[clips.length-1];
-        for(int i = 0, j = 0; i<clips.length; i++, j++)
-        {
-            if(clips[i].equals("info.txt"))
-            {
+        String[] trimmedClips = new String[clips.length - 1];
+        for (int i = 0, j = 0; i < clips.length; i++, j++) {
+            if (clips[i].equals("info.txt")) {
                 j--;
-            }
-            else
-            {
+            } else {
                 trimmedClips[j] = clips[i];
             }
         }
         JList<String> clipsBrowser = new JList<String>(trimmedClips);
         clipsBrowser.setAlignmentX(Component.CENTER_ALIGNMENT);
         clipsBrowser.setAlignmentY(Component.CENTER_ALIGNMENT);
-        clipsBrowser.setBackground(new Color(165,205,255));
-        centerPanel.add(Box.createRigidArea(new Dimension(0,30)));
+        clipsBrowser.setBackground(new Color(165, 205, 255));
+        centerPanel.add(Box.createRigidArea(new Dimension(0, 30)));
         centerPanel.add(clipsBrowser);
-
-
 
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new FlowLayout());
@@ -164,6 +162,7 @@ public class App {
         JButton captureButton = new JButton("Record");
         JButton newButton = new JButton("New Project");
         JButton openButton = new JButton("Open Project");
+        JButton viewButton = new JButton("View");
 
         exitButton.addActionListener(new ActionListener() {
             @Override
@@ -178,7 +177,6 @@ public class App {
                 frame.dispose();
                 stopped = false;
                 System.out.println("Going to capture");
-                // CaptureMode();
                 currentPage = AppPage.Recording;
                 idle = false;
             }
@@ -188,7 +186,6 @@ public class App {
             public void actionPerformed(ActionEvent e) {
                 frame.dispose();
                 System.out.println("Going to create a new project");
-                // CaptureMode();
                 currentPage = AppPage.NewProjectCreation;
                 idle = false;
             }
@@ -198,11 +195,23 @@ public class App {
             public void actionPerformed(ActionEvent e) {
                 frame.dispose();
                 System.out.println("Going to open an existing project");
-                // CaptureMode();
                 currentPage = AppPage.OpenProject;
                 idle = false;
             }
         });
+        viewButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (!clipsBrowser.isSelectionEmpty()) {
+                    frame.dispose();
+                    System.out.println("Going to view the selected clip");
+                    currentViewingClipPath = clipsBrowser.getSelectedValue();
+                    currentPage = AppPage.ViewClip;
+                    idle = false;
+                }
+            }
+        });
+        buttonPanel.add(viewButton);
         buttonPanel.add(captureButton);
         buttonPanel.add(newButton);
         buttonPanel.add(openButton);
@@ -211,6 +220,58 @@ public class App {
         frame.setVisible(true);
         while (idle) {
             System.out.print("");
+        }
+    }
+
+    private static void ViewMode() {
+        idle = true;
+        JFrame frame = new JFrame("View");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(800, 520); // Set window size
+        frame.setLocationRelativeTo(null); // Center the window
+        frame.setLayout(new BorderLayout());
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new FlowLayout());
+        JButton backButton = new JButton("Done");
+
+        backButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                frame.dispose();
+                stopped = true;
+                System.out.println("nevermind");
+                // CaptureMode();
+                currentPage = AppPage.Home;
+                idle = false;
+            }
+        });
+        buttonPanel.add(backButton);
+        frame.add(buttonPanel, BorderLayout.SOUTH);
+
+        JLabel videoPlayback = new JLabel();
+        frame.add(videoPlayback, BorderLayout.CENTER);
+        
+
+        frame.setVisible(true);
+
+        VideoCapture reader = new VideoCapture(currentProjectDirectory+"/"+currentViewingClipPath);
+        Mat viewMat = new Mat();
+        while (idle) {
+            System.out.print("");
+            try
+            {
+                if(reader.read(viewMat))
+                {
+                    BufferedImage image = matToBufferedImage(viewMat);
+                    videoPlayback.setIcon(new ImageIcon(image));
+                    frame.repaint();
+                }
+                Thread.sleep(33);
+            }
+            catch(Exception e)
+            {
+
+            }
         }
     }
 
@@ -291,10 +352,13 @@ public class App {
         openButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                frame.dispose();
-                currentProjectDirectory = "Projects/" + projectList.getSelectedValue();
-                currentPage = AppPage.Home;
-                idle = false;
+                if (!projectList.isSelectionEmpty()) {
+                    frame.dispose();
+                    currentProjectDirectory = "Projects/" + projectList.getSelectedValue();
+                    currentPage = AppPage.Home;
+                    idle = false;
+                }
+
             }
         });
         buttonPanel.add(backButton);
