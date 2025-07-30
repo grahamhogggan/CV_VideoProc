@@ -15,7 +15,7 @@ import java.io.FileWriter;
 import java.nio.file.Files;
 import java.util.List;
 import java.nio.file.Paths;
-
+import java.nio.file.StandardCopyOption;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -40,6 +40,7 @@ public class App {
         NewProjectCreation,
         OpenProject,
         ViewClip,
+        Importing,
     }
 
     public static AppPage currentPage = AppPage.Home;
@@ -95,6 +96,9 @@ public class App {
                     break;
                 case ViewClip:
                     ViewMode();
+                    break;
+                case Importing:
+                    ImportMode();
                     break;
             }
         }
@@ -162,6 +166,7 @@ public class App {
         JButton newButton = new JButton("New Project");
         JButton openButton = new JButton("Open Project");
         JButton viewButton = new JButton("View");
+        JButton importButton = new JButton("Import");
 
         exitButton.addActionListener(new ActionListener() {
             @Override
@@ -210,7 +215,17 @@ public class App {
                 }
             }
         });
+        importButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                frame.dispose();
+                System.out.println("Importing clip");
+                currentPage = AppPage.Importing;
+                idle = false;
+            }
+        });
         buttonPanel.add(viewButton);
+        buttonPanel.add(importButton);
         buttonPanel.add(captureButton);
         buttonPanel.add(newButton);
         buttonPanel.add(openButton);
@@ -399,6 +414,44 @@ public class App {
         while (idle) {
             System.out.print("");
         }
+    }
+
+    private static void ImportMode() {
+        JFrame frame = new JFrame("Import a clip");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(500, 100); // Set window size
+        frame.setLocationRelativeTo(null); // Center the window
+        frame.setLayout(new BorderLayout());
+        JFileChooser browser = new JFileChooser();
+        browser.setCurrentDirectory(new File(System.getProperty("user.home")));
+        browser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Video Files", "mp4"));
+        frame.add(browser, BorderLayout.CENTER);
+
+        frame.setVisible(true);
+
+        int result = browser.showOpenDialog(frame);
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = browser.getSelectedFile();
+            String filePath = selectedFile.getAbsolutePath();
+
+            File targetDirectory = new File(currentProjectDirectory+"/"+selectedFile.getName());
+            try
+            {
+            Files.copy(selectedFile.toPath(), targetDirectory.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+            }
+            catch(Exception e)
+            {
+                
+            }
+            frame.dispose();
+            currentPage = AppPage.Home;
+        } else {
+            frame.dispose();
+            currentPage = AppPage.Home;
+        }
+
     }
 
     private static void CaptureMode() {
