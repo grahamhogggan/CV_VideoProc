@@ -6,13 +6,9 @@ package cv_videoproc;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
-import org.opencv.videoio.VideoCapture;
-import org.opencv.videoio.VideoWriter;
 import org.opencv.videoio.*;
 
 import javax.swing.*;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -264,41 +260,45 @@ public class App {
 
         frame.setVisible(true);
 
-        Mat viewMat = new Mat();
         int lastSliderVal = 0;
         playbackSlider.setValue(0);
         long necessaryAcceleration = 0;
         while (idle) {
             System.out.print("");
             try {
-                long startTime = System.currentTimeMillis();
-                if(playbackSlider.getValue()!=lastSliderVal)
-                {
-                reader.set(Videoio.CAP_PROP_POS_FRAMES,
-                        playbackSlider.getValue());
-                lastSliderVal = playbackSlider.getValue();
+                if (!reader.isOpened()) {
+                    reader.open(currentProjectDirectory + "/" + currentViewingClipPath);
+                    playbackSlider.setValue(0);
+                }
+                if (playbackSlider.getValue() != reader.get(Videoio.CAP_PROP_FRAME_COUNT)) {
+                    long startTime = System.currentTimeMillis();
+                    if (playbackSlider.getValue() != lastSliderVal) {
+                        reader.set(Videoio.CAP_PROP_POS_FRAMES,
+                                playbackSlider.getValue());
+                        lastSliderVal = playbackSlider.getValue();
+                    }
+                    Mat viewMat = new Mat();
+                    if (reader.read(viewMat)) {
+                        BufferedImage image = matToBufferedImage(viewMat);
+                        viewMat.release();
+                        videoPlayback.setIcon(new ImageIcon(image));
+                        frame.repaint();
+                        frameCounter.setText(
+                                reader.get(Videoio.CAP_PROP_POS_FRAMES) + "/"
+                                        + reader.get(Videoio.CAP_PROP_FRAME_COUNT));
+                        playbackSlider.setValue(playbackSlider.getValue() + 1);
+                    }
+                    long elapsedTime = System.currentTimeMillis() - startTime;
+                    if (elapsedTime + necessaryAcceleration > 33) {
+                        System.out.println("Excessive delays! " + elapsedTime + " millis");
+                        necessaryAcceleration += elapsedTime - 33;
+
+                    } else {
+                        Thread.sleep(33 - elapsedTime - necessaryAcceleration);
+                    }
                 }
 
-                if (reader.read(viewMat)) {
-                    BufferedImage image = matToBufferedImage(viewMat);
-                    videoPlayback.setIcon(new ImageIcon(image));
-                    frame.repaint();
-                    frameCounter.setText(
-                            reader.get(Videoio.CAP_PROP_POS_FRAMES) + "/" + reader.get(Videoio.CAP_PROP_FRAME_COUNT));
-                    playbackSlider.setValue(playbackSlider.getValue() + 1);
-                }
-                long elapsedTime = System.currentTimeMillis()-startTime;
-                if(elapsedTime+necessaryAcceleration>33)
-                {
-                    System.out.println("Excessive delays! "+elapsedTime+" millis");
-                    necessaryAcceleration+=elapsedTime-33;
-                    
-                }
-                else
-                {
-                    Thread.sleep(33-elapsedTime-necessaryAcceleration);
-                }
-                //Thread.sleep(33);
+                // Thread.sleep(33);
             } catch (Exception e) {
 
             }
@@ -522,16 +522,15 @@ public class App {
         frame.dispose();
     }
 
+    private static BufferedImage reusableImage; // Initialize with video dimensions
+
     private static BufferedImage matToBufferedImage(Mat mat) {
-        int type = BufferedImage.TYPE_BYTE_GRAY;
-        if (mat.channels() > 1) {
-            type = BufferedImage.TYPE_3BYTE_BGR;
+        if (reusableImage == null || reusableImage.getWidth() != mat.cols()
+                || reusableImage.getHeight() != mat.rows()) {
+            reusableImage = new BufferedImage(mat.cols(), mat.rows(), BufferedImage.TYPE_3BYTE_BGR);
         }
-        int width = mat.cols();
-        int height = mat.rows();
-        BufferedImage image = new BufferedImage(width, height, type);
-        byte[] data = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
+        byte[] data = ((DataBufferByte) reusableImage.getRaster().getDataBuffer()).getData();
         mat.get(0, 0, data);
-        return image;
+        return reusableImage;
     }
 }
