@@ -39,6 +39,9 @@ public class App {
     public static boolean playing = true;
     public static boolean renaming = true;
 
+    private final static Color blue = new Color(205, 245, 255);
+    private final static Color gray = new Color(205, 205, 205);
+
     enum AppPage {
         Home,
         Recording,
@@ -46,6 +49,7 @@ public class App {
         OpenProject,
         ViewClip,
         Importing,
+        Sequencing,
     }
 
     public static AppPage currentPage = AppPage.Home;
@@ -104,6 +108,9 @@ public class App {
                     break;
                 case Importing:
                     ImportMode();
+                    break;
+                case Sequencing:
+                    SequenceMode();
                     break;
             }
         }
@@ -174,6 +181,7 @@ public class App {
         JButton importButton = new JButton("Import");
         JButton renameButton = new JButton("Rename");
         JButton deleteButton = new JButton("Delete");
+        JButton sequenceButton = new JButton("Sequence");
 
         exitButton.addActionListener(new ActionListener() {
             @Override
@@ -293,12 +301,22 @@ public class App {
                 }
             }
         });
+        sequenceButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                frame.dispose();
+                idle = false;
+                currentPage = AppPage.Sequencing;
+            }
+        });
+
         buttonPanel.add(viewButton);
         buttonPanel.add(renameButton);
         buttonPanel.add(deleteButton);
         buttonPanel.add(new JLabel("|"));
         buttonPanel.add(importButton);
         buttonPanel.add(captureButton);
+        buttonPanel.add(sequenceButton);
         buttonPanel.add(new JLabel("|"));
         buttonPanel.add(newButton);
         buttonPanel.add(openButton);
@@ -741,6 +759,124 @@ public class App {
         camera.release();
         writer.release();
         frame.dispose();
+    }
+
+    private static void SequenceMode() {
+        idle = true;
+        System.out.println("Sequencing now");
+        JFrame frame = new JFrame("Sequencer");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(800, 520); // Set window size
+        frame.setLocationRelativeTo(null); // Center the window
+        frame.setVisible(true);
+
+        frame.setLayout(new BorderLayout());
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.LINE_AXIS));
+        frame.add(mainPanel, BorderLayout.CENTER);
+        JPanel leftPanel = new JPanel();
+        JPanel rightPanel = new JPanel();
+        leftPanel.setBackground(blue);
+        rightPanel.setBackground(gray);
+        mainPanel.add(leftPanel);
+        mainPanel.add(rightPanel);
+        JPanel buttonPanel = new JPanel();
+
+        File proj = new File(currentProjectDirectory);
+
+        String[] clips = proj.list();
+        String[] trimmedClips = new String[clips.length - 1];
+        for (int i = 0, j = 0; i < clips.length; i++, j++) {
+            if (clips[i].equals("info.txt")) {
+                j--;
+            } else {
+                trimmedClips[j] = clips[i];
+            }
+        }
+        JList<String> clipsBrowser = new JList<String>(trimmedClips);
+        clipsBrowser.setBackground(blue);
+
+        leftPanel.add(clipsBrowser);
+
+        DefaultListModel<String> sequenceList = new DefaultListModel<String>();
+        JList<String> sequence = new JList<String>(sequenceList);
+        sequence.setBackground(gray);
+        rightPanel.add(sequence);
+
+        frame.add(buttonPanel, BorderLayout.SOUTH);
+        JButton addButton = new JButton("Add");
+        JButton removeButton = new JButton("Remove");
+        JButton renderButton = new JButton("Render");
+        JButton cancelButton = new JButton("Cancel");
+
+        cancelButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                idle = false;
+                currentPage = AppPage.Home;
+
+                frame.dispose();
+            }
+        });
+        addButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (!clipsBrowser.isSelectionEmpty()) {
+                    String selectedFile = clipsBrowser.getSelectedValue();
+                    sequenceList.addElement(selectedFile);
+                }
+            }
+        });
+        removeButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (!sequence.isSelectionEmpty()) {
+                    sequenceList.removeElement(sequence.getSelectedValue());
+                }
+            }
+        });
+        renderButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                int fourcc = VideoWriter.fourcc('H', '2', '6', '4');
+                String filename = currentProjectDirectory + "/Sequence.mp4";
+                VideoWriter writer = new VideoWriter(filename, fourcc, 30.0, new Size(640, 480));
+                if (!writer.isOpened()) {
+                    System.out.println("Error: Could not open VideoWriter.");
+                    return;
+                }
+                Mat f = new Mat();
+
+                for (Object clip : sequenceList.toArray()) {
+                    String clipName = (String) clip;
+                    System.out.println("Rendering clip " + clipName);
+                    VideoCapture reader = new VideoCapture(currentProjectDirectory + "/" + clipName);
+                    for (int i = 0; i < reader.get(Videoio.CAP_PROP_FRAME_COUNT); i++) {
+                        if (reader.read(f)) {
+                            System.out.println("Saved frame " + (i));
+                            writer.write(f);
+                        }
+                    }
+                    reader.release();
+                }
+
+                writer.release();
+                frame.dispose();
+                stopped = true;
+                idle = false;
+                currentPage = AppPage.Home;
+            }
+        });
+
+        buttonPanel.add(cancelButton);
+        buttonPanel.add(addButton);
+        buttonPanel.add(removeButton);
+        buttonPanel.add(renderButton);
+
+        while (idle) {
+            System.out.println("");
+        }
     }
 
     private static BufferedImage reusableImage; // Initialize with video dimensions
