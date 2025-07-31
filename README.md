@@ -1,2 +1,5 @@
-This project will liekly be abandoned in the near future due to huge performance issues.
-I might make a few more commits to add some final functionality and then call it quits
+This project has been abandoned  due to huge performance issues.  
+It is very buggy because I don't really care anymore.
+
+Import, Record, Trim, Sequence, and Export 480p videos all in the application.  
+It's like your favorite video editing software, but worse!
