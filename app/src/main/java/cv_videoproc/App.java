@@ -9,6 +9,7 @@ import org.opencv.core.Size;
 import org.opencv.videoio.*;
 
 import javax.swing.*;
+import javax.swing.border.Border;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -36,7 +37,7 @@ public class App {
     public static boolean capturing = false;
     public static boolean idle = true;
     public static boolean playing = true;
-
+    public static boolean renaming = true;
 
     enum AppPage {
         Home,
@@ -171,6 +172,8 @@ public class App {
         JButton openButton = new JButton("Open Project");
         JButton viewButton = new JButton("View");
         JButton importButton = new JButton("Import");
+        JButton renameButton = new JButton("Rename");
+        JButton deleteButton = new JButton("Delete");
 
         exitButton.addActionListener(new ActionListener() {
             @Override
@@ -228,12 +231,78 @@ public class App {
                 idle = false;
             }
         });
+        renameButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (!clipsBrowser.isSelectionEmpty()) {
+                    renaming = true;
+                    JFrame renamingFrame = new JFrame("Renaming Clip " + clipsBrowser.getSelectedValue());
+                    renamingFrame.setSize(300, 100); // Set window size
+                    renamingFrame.setLocationRelativeTo(null); // Center the window
+                    renamingFrame.setLayout(new BorderLayout());
 
+                    JTextArea field = new JTextArea(clipsBrowser.getSelectedValue());
+                    renamingFrame.add(field, BorderLayout.CENTER);
+                    JButton cancelButton = new JButton("Cancel");
+                    JButton confirmButton = new JButton("Confirm");
+                    JPanel RBPanel = new JPanel();
+                    RBPanel.setLayout(new FlowLayout());
+                    RBPanel.add(cancelButton);
+                    RBPanel.add(confirmButton);
+                    renamingFrame.add(RBPanel, BorderLayout.SOUTH);
+                    renamingFrame.setVisible(true);
+
+                    confirmButton.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            renamingFrame.dispose();
+                            String newFileName = field.getText();
+                            if (!newFileName.contains(".mp4")) {
+                                newFileName += ".mp4";
+                            }
+                            File newFile = new File(currentProjectDirectory + "/" + newFileName);
+                            File oldFile = new File(currentProjectDirectory + "/" + clipsBrowser.getSelectedValue());
+                            try {
+                                Files.copy(oldFile.toPath(), newFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                                oldFile.delete();
+                            } catch (Exception eeeee) {
+
+                            }
+                            frame.dispose();
+                            idle = false;
+                        }
+                    });
+                    cancelButton.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            renamingFrame.dispose();
+                        }
+                    });
+                }
+
+            }
+        });
+        deleteButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (!clipsBrowser.isSelectionEmpty()) {
+                    File toDelete = new File(currentProjectDirectory + "/" + clipsBrowser.getSelectedValue());
+                    toDelete.delete();
+                    idle = false;
+                    frame.dispose();
+                }
+            }
+        });
         buttonPanel.add(viewButton);
+        buttonPanel.add(renameButton);
+        buttonPanel.add(deleteButton);
+        buttonPanel.add(new JLabel("|"));
         buttonPanel.add(importButton);
         buttonPanel.add(captureButton);
+        buttonPanel.add(new JLabel("|"));
         buttonPanel.add(newButton);
         buttonPanel.add(openButton);
+        buttonPanel.add(new JLabel("|"));
         buttonPanel.add(exitButton);
         frame.add(buttonPanel, BorderLayout.SOUTH);
         frame.setVisible(true);
@@ -386,7 +455,8 @@ public class App {
                     reader.open(currentProjectDirectory + "/" + currentViewingClipPath);
                     playbackSlider.setValue(0);
                 }
-                if (playbackSlider.getValue() != reader.get(Videoio.CAP_PROP_FRAME_COUNT)&&(playing||playbackSlider.getValue()!=lastSliderVal)) {
+                if (playbackSlider.getValue() != reader.get(Videoio.CAP_PROP_FRAME_COUNT)
+                        && (playing || playbackSlider.getValue() != lastSliderVal)) {
                     long startTime = System.currentTimeMillis();
                     if (playbackSlider.getValue() != lastSliderVal) {
                         reader.set(Videoio.CAP_PROP_POS_FRAMES,
